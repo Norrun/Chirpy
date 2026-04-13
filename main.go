@@ -15,11 +15,11 @@ func main() {
 	mux.Handle("/app/", http.StripPrefix("/app",
 		conf.middlewareMetricsInc(
 			http.FileServer(http.Dir(".")))))
-	mux.HandleFunc("GET /healthz", readinessHandler)
+	mux.HandleFunc("GET /api/healthz", readinessHandler)
 
-	mux.HandleFunc("GET /metrics", conf.handlerHitCount)
+	mux.HandleFunc("GET /api/metrics", conf.handlerHitCount)
 
-	mux.HandleFunc("POST /reset", conf.handlerHitCountReset)
+	mux.HandleFunc("POST /api/reset", conf.handlerHitCountReset)
 
 	server := http.Server{Handler: mux,
 		Addr: ":8080"}
