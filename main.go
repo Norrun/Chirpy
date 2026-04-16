@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +10,9 @@ import (
 	"strings"
 	"sync/atomic"
 )
+
+type httpStatus int
+type userMessage string
 
 func main() {
 	log.Println("setting up")
@@ -84,26 +88,27 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	valid := ResponseClean{CleanedBody: stringCleaner(post.Body)}
-	resb, err := json.Marshal(valid)
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(200)
-	w.Write(resb)
+	respondWithJson(w, 200, valid)
 
 }
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {
 	res := ResponseErr{Error: msg}
-	resb, err := json.Marshal(res)
+	respondWithJson(w, code, res)
+}
+
+func respondWithJson(w http.ResponseWriter, code int, body any) {
+	resb, err := json.Marshal(body)
 	if err != nil {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(500)
-		io.WriteString(w, "failed to handle failure")
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("Unable to generate json reponse: %v", err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
 	w.Write(resb)
 }
+
 func stringCleaner(s string) string {
 	words := strings.Split(s, " ")
 	cleanWords := make([]string, 0, len(words))
