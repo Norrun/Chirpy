@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -82,7 +83,7 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, 400, "Chirp is too long")
 		return
 	}
-	valid := ResponseValid{Valid: true}
+	valid := ResponseClean{CleanedBody: stringCleaner(post.Body)}
 	resb, err := json.Marshal(valid)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(200)
@@ -102,4 +103,18 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
 	w.Write(resb)
+}
+func stringCleaner(s string) string {
+	words := strings.Split(s, " ")
+	cleanWords := make([]string, 0, len(words))
+
+	for _, w := range words {
+		switch strings.ToLower(w) {
+		case "kerfuffle", "sharbert", "fornax":
+			cleanWords = append(cleanWords, "****")
+		default:
+			cleanWords = append(cleanWords, w)
+		}
+	}
+	return strings.Join(cleanWords, " ")
 }

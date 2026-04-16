@@ -10,3 +10,7 @@ type ResponseErr struct {
 type ResponseValid struct {
 	Valid bool `json:"valid"`
 }
+
+type ResponseClean struct {
+	CleanedBody string `json:"cleaned_body"`
+}
