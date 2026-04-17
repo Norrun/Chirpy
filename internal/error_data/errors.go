@@ -8,6 +8,7 @@ import (
 type ErrorMetadata[T any] interface {
 	error
 	Metadata() T
+	Unwrap() error
 }
 
 type DefaultErrorMetadata[T any] struct {
@@ -40,4 +41,19 @@ func WithMetadataUnique[T any](err error, data T) error {
 		return err
 	}
 	return DefaultErrorMetadata[T]{internal: err, data: data}
+}
+
+func Having[T any](err error) (T, bool) {
+
+	data, ok := errors.AsType[ErrorMetadata[T]](err)
+	if ok {
+		return data.Metadata(), true
+	}
+	var temp T
+	return temp, false
+}
+
+func Test() {
+	var err error
+	Having[[2]int](err)
 }

@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 )
 
-type httpStatus int
-type userMessage string
+//type httpStatus int
+//type userMessage string
 
 func main() {
 	log.Println("setting up")
