@@ -1,0 +1,22 @@
+POST http://localhost:8080/api/users
+content-type: application/json
+
+{
+  "email": "user@example.com"
+}
+
+###
+
+POST http://localhost:8080/api/users
+content-type: application/json
+
+###
+
+POST http://localhost:8080/api/users
+content-type: application/json
+
+9fh8we9fh
+
+###
+
+POST http://localhost:8080/admin/reset
