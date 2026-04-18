@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"os"
 
 	"fmt"
 	"io"
@@ -9,6 +11,10 @@ import (
 	"net/http"
 	"strings"
 	"sync/atomic"
+
+	"github.com/Norrun/Chirpy/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 //type httpStatus int
@@ -16,7 +22,16 @@ import (
 
 func main() {
 	log.Println("setting up")
-	var conf apiConfig
+
+	log.Fatal(godotenv.Load())
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	queries := database.New(db)
+
+	conf := apiConfig{dbq: queries}
 	mux := http.NewServeMux()
 	mux.Handle("/app/", http.StripPrefix("/app",
 		conf.middlewareMetricsInc(
@@ -45,6 +60,7 @@ func readinessHandler(res http.ResponseWriter, req *http.Request) {
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	dbq            *database.Queries
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
