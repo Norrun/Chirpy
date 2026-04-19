@@ -46,13 +46,13 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	})
 }
 
-func (cfg *apiConfig) handlerHitCount(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerAdminMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, fmt.Sprintf("<html>\n  <body>\n    <h1>Welcome, Chirpy Admin</h1>\n    <p>Chirpy has been visited %d times!</p>\n  </body>\n</html>", cfg.fileserverHits.Load()))
 }
 
-func (cfg *apiConfig) handlerReset(res http.ResponseWriter, req *http.Request) {
+func (cfg *apiConfig) handlerAdminReset(res http.ResponseWriter, req *http.Request) {
 	cfg.fileserverHits.Store(0)
 
 	if cfg.Platform != "dev" {
@@ -72,7 +72,7 @@ func (cfg *apiConfig) handlerReset(res http.ResponseWriter, req *http.Request) {
 	io.WriteString(res, "OK")
 }
 
-func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerApiUsersCreate(w http.ResponseWriter, r *http.Request) {
 	var createUser struct {
 		Email string `json:"email"`
 	}
@@ -105,5 +105,45 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		Email:     user.Email,
 	}
 	respondWithJson(w, http.StatusCreated, responseUser)
+
+}
+
+func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Request) {
+	var recevePost struct {
+		Body   string `json:"body"`
+		UserID string `json:"user_id"`
+	}
+	err := readJsonRequest(r, &recevePost)
+	if err != nil {
+		respondWithError(w, 400, "Something went wrong when creating post", err)
+		return
+	}
+
+	userID, err := uuid.Parse(recevePost.UserID)
+	if err != nil {
+		respondWithError(w, 400, "Something went wrong when creating post", err)
+		return
+	}
+	post, err := conf.dbq.CreatePost(r.Context(), database.CreatePostParams{Body: recevePost.Body, UserID: userID})
+	if err != nil {
+		respondWithError(w, 400, "Something went wrong when creating post", err)
+		return
+	}
+
+	responsePost := struct {
+		ID        string    `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Body      string    `json:"body"`
+		UserID    string    `json:"user_id"`
+	}{
+		ID:        post.ID.String(),
+		CreatedAt: post.CreatedAt,
+		UpdatedAt: post.UpdatedAt,
+		Body:      post.Body,
+		UserID:    post.UserID.String(),
+	}
+
+	respondWithJson(w, http.StatusCreated, responsePost)
 
 }

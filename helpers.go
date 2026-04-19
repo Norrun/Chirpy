@@ -11,6 +11,7 @@ func respondWithError(w http.ResponseWriter, code int, msg string, err error) {
 	if err != nil && code >= 500 {
 		log.Printf("5XX error (%s): %v", msg, err)
 	}
+	log.Print(err)
 
 	res := struct {
 		Error string `json:"error"`

@@ -35,17 +35,18 @@ func routing(mux *http.ServeMux, conf *apiConfig) {
 	mux.Handle("/app/", http.StripPrefix("/app",
 		conf.middlewareMetricsInc(
 			http.FileServer(http.Dir(".")))))
-	mux.HandleFunc("GET /api/healthz", readinessHandler)
-	mux.HandleFunc("GET /admin/metrics", conf.handlerHitCount)
-	mux.HandleFunc("POST /admin/reset", conf.handlerReset)
+	mux.HandleFunc("GET /api/healthz", handlerGETapiHealth)
+	mux.HandleFunc("GET /admin/metrics", conf.handlerAdminMetrics)
+	mux.HandleFunc("POST /admin/reset", conf.handlerAdminReset)
 	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
-	mux.HandleFunc("POST /api/users", conf.handlerCreateUser)
+	mux.HandleFunc("POST /api/users", conf.handlerApiUsersCreate)
+	mux.HandleFunc("POST /api/chirps", conf.handlerApiChirpsCreate)
 
 }
 
 // Handlers (and stuf)
 
-func readinessHandler(res http.ResponseWriter, req *http.Request) {
+func handlerGETapiHealth(res http.ResponseWriter, req *http.Request) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	res.WriteHeader(http.StatusOK)
 	io.WriteString(res, "OK")
