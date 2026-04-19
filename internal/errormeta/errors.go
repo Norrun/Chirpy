@@ -1,4 +1,4 @@
-package errordata
+package errormeta
 
 import (
 	"errors"
@@ -35,18 +35,18 @@ func (r errorMetadata[T]) Unwrap() error {
 	return r.internal
 }
 
-func WithMetadata[T any](err error, data T) ErrorMetadata[T] {
+func Include[T any](err error, data T) ErrorMetadata[T] {
 	return errorMetadata[T]{internal: err, data: data}
 }
 
-func WithMetadataUnique[T any](err error, data T) error {
+func IncludeIfFirstOfType[T any](err error, data T) error {
 	if _, ok := errors.AsType[ErrorMetadata[T]](err); ok {
 		return err
 	}
 	return errorMetadata[T]{internal: err, data: data}
 }
 
-func Extract[T any](err error) (T, bool) {
+func Has[T any](err error) (T, bool) {
 
 	data, ok := errors.AsType[ErrorMetadata[T]](err)
 	if ok {
