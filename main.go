@@ -1,16 +1,20 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/Norrun/Chirpy/internal/errormeta"
+	"github.com/Norrun/Chirpy/internal/renderstuff"
 	_ "github.com/lib/pq"
 )
 
-//type httpStatus int
-//type userMessage string
+// type httpStatus int
+// type userMessage string
+type void struct{}
 
 func main() {
 	log.Println("setting up")
@@ -36,6 +40,7 @@ func routing(mux *http.ServeMux, conf *apiConfig) {
 	mux.Handle("/app/", http.StripPrefix("/app",
 		conf.middlewareMetricsInc(
 			http.FileServer(http.Dir(".")))))
+	mux.Handle("GET /api/", middlewareRespondJson(conf, handlerApi404))
 	mux.HandleFunc("GET /api/healthz", handlerGETapiHealth)
 	mux.HandleFunc("GET /admin/metrics", conf.handlerAdminMetrics)
 	mux.HandleFunc("POST /admin/reset", conf.handlerAdminReset)
@@ -86,4 +91,11 @@ func stringCleaner(s string) string {
 		}
 	}
 	return strings.Join(cleanWords, " ")
+}
+
+func handlerApi404(r *http.Request) (renderstuff.HandlerResult[void], error) {
+	err := errors.New("page not found")
+	err = errormeta.Include(err, 404)
+	err = errormeta.Include(err, "page not found")
+	return renderstuff.HandlerResult[void]{}, err
 }
