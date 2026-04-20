@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Norrun/Chirpy/internal/database"
+	"github.com/Norrun/Chirpy/internal/errormeta"
 	"github.com/Norrun/Chirpy/internal/renderstuff"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
@@ -142,6 +143,7 @@ func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Req
 	respondWithJson(w, http.StatusCreated, responsePost)
 
 }
+
 func (receiver *apiConfig) handlerApiChirps(r *http.Request) (renderstuff.HandlerResult[[]ResponseChirp], error) {
 	var empty renderstuff.HandlerResult[[]ResponseChirp]
 	chirps, err := receiver.dbq.GetPosts(r.Context())
@@ -159,4 +161,34 @@ func (receiver *apiConfig) handlerApiChirps(r *http.Request) (renderstuff.Handle
 		})
 	}
 	return renderstuff.HandlerResult[[]ResponseChirp]{Status: 200, Headers: nil, Data: resChirps}, nil
+}
+
+func (receiver *apiConfig) handlerApiChirpsID(r *http.Request) (renderstuff.HandlerResult[ResponseChirp], error) {
+	var empty renderstuff.HandlerResult[ResponseChirp]
+	IDStr := r.PathValue("id")
+	ID, err := uuid.Parse(IDStr)
+	if err != nil {
+		err = errormeta.Include(err, 404)
+		err = errormeta.Include(err, "Not Found")
+		return empty, err
+	}
+	chirp, err := receiver.dbq.GetPost(r.Context(), ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			err = errormeta.Include(err, 404)
+			err = errormeta.Include(err, "Chirp Not Found")
+			return empty, err
+		}
+		return empty, err
+	}
+
+	resChirp := ResponseChirp{
+		ID:        IDStr,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID.String(),
+	}
+
+	return renderstuff.HandlerResult[ResponseChirp]{Data: resChirp}, nil
 }

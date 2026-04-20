@@ -23,6 +23,7 @@ func main() {
 
 	server := http.Server{Handler: mux,
 		Addr: ":8080"}
+	//server.ErrorLog = log.Default()
 
 	log.Println("serving")
 	log.Fatal(server.ListenAndServe())
@@ -42,6 +43,7 @@ func routing(mux *http.ServeMux, conf *apiConfig) {
 	mux.HandleFunc("POST /api/users", conf.handlerApiUsersCreate)
 	mux.HandleFunc("POST /api/chirps", conf.handlerApiChirpsCreate)
 	mux.Handle("GET /api/chirps", middlewareRespondJson(conf, conf.handlerApiChirps))
+	mux.Handle("GET /api/chirps/{id}", middlewareRespondJson(conf, conf.handlerApiChirpsID))
 
 }
 
