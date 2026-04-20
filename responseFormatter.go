@@ -36,12 +36,15 @@ func middlewareRespondJson[T any](conf *apiConfig, h renderstuff.Handler[T]) htt
 			respondWithJson(w, status, res)
 			return
 		}
-		for key, v := range res.Headers {
-			for _, e := range v {
-				w.Header().Add(key, e)
-			}
+		if res.Headers != nil {
+			for key, v := range res.Headers {
+				for _, e := range v {
+					w.Header().Add(key, e)
+				}
 
+			}
 		}
+
 		status := res.Status
 		if status == 0 {
 			status = 200

@@ -15,4 +15,4 @@ func ReadRequestType[T any](reader RequestReader, r *http.Request) (T, error) {
 	return res, err
 }
 
-type Handler[T any] func(*http.Request, ...RequestReader) (HandlerResult[T], error)
+type Handler[T any] func(*http.Request) (HandlerResult[T], error)

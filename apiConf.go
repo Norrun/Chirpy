@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Norrun/Chirpy/internal/database"
+	"github.com/Norrun/Chirpy/internal/renderstuff"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
@@ -130,13 +131,7 @@ func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	responsePost := struct {
-		ID        string    `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Body      string    `json:"body"`
-		UserID    string    `json:"user_id"`
-	}{
+	responsePost := ResponseChirp{
 		ID:        post.ID.String(),
 		CreatedAt: post.CreatedAt,
 		UpdatedAt: post.UpdatedAt,
@@ -146,4 +141,22 @@ func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Req
 
 	respondWithJson(w, http.StatusCreated, responsePost)
 
+}
+func (receiver *apiConfig) handlerApiChirps(r *http.Request) (renderstuff.HandlerResult[[]ResponseChirp], error) {
+	var empty renderstuff.HandlerResult[[]ResponseChirp]
+	chirps, err := receiver.dbq.GetPosts(r.Context())
+	if err != nil {
+		return empty, err
+	}
+	resChirps := make([]ResponseChirp, 0, len(chirps))
+	for _, chirp := range chirps {
+		resChirps = append(resChirps, ResponseChirp{
+			ID:        chirp.ID.String(),
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.ID.String(),
+		})
+	}
+	return renderstuff.HandlerResult[[]ResponseChirp]{Status: 200, Headers: nil, Data: resChirps}, nil
 }
