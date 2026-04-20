@@ -8,12 +8,14 @@ import (
 	"github.com/Norrun/Chirpy/internal/renderstuff"
 )
 
+//type serializable any
+
 func middlewareRespondJson[T any](conf *apiConfig, h renderstuff.Handler[T]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		res, err := h(r)
 		if err != nil {
-			status, _ := errormeta.Has[int](err)
-			msg, _ := errormeta.Has[string](err)
+			status, _ := errormeta.Extract[int](err)
+			msg, _ := errormeta.Extract[string](err)
 
 			if status == 0 {
 				status = 500

@@ -1,4 +1,4 @@
-package main
+package renderstuff
 
 import "net/http"
 
@@ -7,12 +7,12 @@ type HandlerResult[T any] struct {
 	Headers http.Header
 	Data    T
 }
-type ReadRequest func(*http.Request, any) error
-type ReaderRequestType[T any] func(*http.Request) (T, error)
-type Handler[T any] func(*http.Request) (HandlerResult[T], error)
+type RequestReader func(*http.Request, any) error
 
-func RenderResponce[T any](conf *apiConfig, h Handler[T]) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		res, err := h(r)
-	}
+func ReadRequestType[T any](reader RequestReader, r *http.Request) (T, error) {
+	var res T
+	err := reader(r, &res)
+	return res, err
 }
+
+type Handler[T any] func(*http.Request, ...RequestReader) (HandlerResult[T], error)

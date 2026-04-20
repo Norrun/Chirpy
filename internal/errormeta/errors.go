@@ -46,7 +46,12 @@ func IncludeIfFirstOfType[T any](err error, data T) error {
 	return errorMetadata[T]{internal: err, data: data}
 }
 
-func Has[T any](err error) (T, bool) {
+func Has[T any](err error) bool {
+	_, ok := errors.AsType[ErrorMetadata[T]](err)
+	return ok
+}
+
+func Extract[T any](err error) (T, bool) {
 
 	data, ok := errors.AsType[ErrorMetadata[T]](err)
 	if ok {
