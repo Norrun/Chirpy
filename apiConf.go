@@ -120,6 +120,10 @@ func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Req
 		respondWithError(w, 400, "Something went wrong when creating post", err)
 		return
 	}
+	if len([]rune(recevePost.Body)) > 140 {
+		respondWithError(w, 400, "Chirp is too long", nil)
+		return
+	}
 
 	userID, err := uuid.Parse(recevePost.UserID)
 	if err != nil {
@@ -136,7 +140,7 @@ func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Req
 		ID:        post.ID.String(),
 		CreatedAt: post.CreatedAt,
 		UpdatedAt: post.UpdatedAt,
-		Body:      post.Body,
+		Body:      stringCleaner(post.Body),
 		UserID:    post.UserID.String(),
 	}
 

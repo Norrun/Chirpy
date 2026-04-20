@@ -44,7 +44,7 @@ func routing(mux *http.ServeMux, conf *apiConfig) {
 	mux.HandleFunc("GET /api/healthz", handlerGETapiHealth)
 	mux.HandleFunc("GET /admin/metrics", conf.handlerAdminMetrics)
 	mux.HandleFunc("POST /admin/reset", conf.handlerAdminReset)
-	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	//mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
 	mux.HandleFunc("POST /api/users", conf.handlerApiUsersCreate)
 	mux.HandleFunc("POST /api/chirps", conf.handlerApiChirpsCreate)
 	mux.Handle("GET /api/chirps", middlewareRespondJson(conf, conf.handlerApiChirps))
