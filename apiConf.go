@@ -2,14 +2,16 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"sync/atomic"
-	"time"
 
+	"github.com/Norrun/Chirpy/internal/auth"
 	"github.com/Norrun/Chirpy/internal/database"
 	"github.com/Norrun/Chirpy/internal/errormeta"
 	"github.com/Norrun/Chirpy/internal/renderstuff"
@@ -75,17 +77,20 @@ func (cfg *apiConfig) handlerAdminReset(res http.ResponseWriter, req *http.Reque
 }
 
 func (cfg *apiConfig) handlerApiUsersCreate(w http.ResponseWriter, r *http.Request) {
-	var createUser struct {
-		Email string `json:"email"`
-	}
 
-	err := readJsonRequest(r, &createUser)
+	createUser, err := readJsonRequestType[CreateUser](r)
 	if err != nil {
 		respondWithError(w, 400, "failed to create user", err)
 		return
 	}
 
-	user, err := cfg.dbq.CreateUser(r.Context(), createUser.Email)
+	password, err := auth.HashPassword(createUser.Password)
+	if err != nil {
+		respondWithError(w, 500, "internal error", err)
+		return
+	}
+
+	user, err := cfg.dbq.CreateUser(r.Context(), database.CreateUserParams{Email: createUser.Email, Password: password})
 
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
@@ -95,13 +100,8 @@ func (cfg *apiConfig) handlerApiUsersCreate(w http.ResponseWriter, r *http.Reque
 		}
 		return
 	}
-	responseUser := struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
-	}{
-		ID:        user.ID,
+	responseUser := ResponseUser{
+		ID:        user.ID.String(),
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
@@ -195,4 +195,43 @@ func (receiver *apiConfig) handlerApiChirpsID(r *http.Request) (renderstuff.Hand
 	}
 
 	return renderstuff.HandlerResult[ResponseChirp]{Data: resChirp}, nil
+}
+
+func (receiver *apiConfig) handlerApiLogin(r *http.Request) (renderstuff.HandlerResult[ResponseUser], error) {
+	var empty renderstuff.HandlerResult[ResponseUser]
+	login, err := readJsonRequestType[CreateUser](r)
+	if err != nil {
+		if _, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
+			err = errormeta.Include(err, 422)
+			err = errormeta.Include(err, "need email and password fields")
+		} else {
+			err = errormeta.Include(err, 400)
+			err = errormeta.Include(err, "login error")
+		}
+		return empty, err
+	}
+	user, err := receiver.dbq.GetUserByEmail(r.Context(), login.Email)
+	if err != nil {
+		err = errormeta.Include(err, 400)
+		err = errormeta.Include(err, "login error")
+		return empty, err
+	}
+	valid, err := auth.CheckPasswordHash(login.Password, user.Password)
+	if err != nil {
+		err = errormeta.Include(err, "internal server error")
+		return empty, err
+	}
+	if valid == false {
+		err = fmt.Errorf("issue")
+		err = errormeta.Include(err, 401)
+		err = errormeta.Include(err, "wrong password")
+		return empty, err
+	}
+	result := renderstuff.HandlerResult[ResponseUser]{Data: ResponseUser{
+		ID:        user.ID.String(),
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}}
+	return result, nil
 }

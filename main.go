@@ -49,6 +49,7 @@ func routing(mux *http.ServeMux, conf *apiConfig) {
 	mux.HandleFunc("POST /api/chirps", conf.handlerApiChirpsCreate)
 	mux.Handle("GET /api/chirps", middlewareRespondJson(conf, conf.handlerApiChirps))
 	mux.Handle("GET /api/chirps/{id}", middlewareRespondJson(conf, conf.handlerApiChirpsID))
+	mux.Handle("POST /api/login", middlewareRespondJson(conf, conf.handlerApiLogin))
 
 }
 

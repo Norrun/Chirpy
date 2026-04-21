@@ -21,3 +21,15 @@ type ResponseChirp struct {
 	Body      string    `json:"body"`
 	UserID    string    `json:"user_id"`
 }
+
+type ResponseUser struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
+
+type CreateUser struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
