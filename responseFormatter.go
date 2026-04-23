@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/Norrun/Chirpy/internal/errormeta"
-	"github.com/Norrun/Chirpy/internal/renderstuff"
+	"github.com/Norrun/Chirpy/internal/flexy"
 )
 
 //type serializable any
 
-func middlewareRespondJson[T any](conf *apiConfig, h renderstuff.Handler[T]) http.HandlerFunc {
+func middlewareRespondJson[T any](conf *apiConfig, h flexy.HandlerFunc[T]) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		res, err := h(r)
 		if err != nil {
@@ -52,4 +52,35 @@ func middlewareRespondJson[T any](conf *apiConfig, h renderstuff.Handler[T]) htt
 		respondWithJson(w, status, res.Data)
 
 	}
+}
+
+func adapterHandleError(conf *apiConfig, _ flexy.Renderer, previous flexy.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err := previous.ServeHTTP(w, r)
+		if err != nil {
+			status, _ := errormeta.Extract[int](err)
+			msg, _ := errormeta.Extract[string](err)
+
+			if status == 0 {
+				status = 500
+			}
+			if msg == "" {
+				msg = "something went wrong"
+			}
+
+			if conf.Platform == "dev" {
+				log.Println(err)
+			} else if status >= 500 {
+				log.Printf("5XX error (%s): %v", msg, err)
+			}
+
+			res := struct {
+				Error string `json:"error"`
+			}{Error: msg}
+			respondWithJson(w, status, res)
+			return
+		}
+	})
+
 }

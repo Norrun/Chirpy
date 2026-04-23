@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/Norrun/Chirpy/internal/errormeta"
-	"github.com/Norrun/Chirpy/internal/renderstuff"
+	"github.com/Norrun/Chirpy/internal/flexy"
 	_ "github.com/lib/pq"
 )
 
@@ -94,9 +94,9 @@ func stringCleaner(s string) string {
 	return strings.Join(cleanWords, " ")
 }
 
-func handlerApi404(r *http.Request) (renderstuff.HandlerResult[void], error) {
+func handlerApi404(r *http.Request) (flexy.HandlerResult[void], error) {
 	err := errors.New("page not found")
 	err = errormeta.Include(err, 404)
 	err = errormeta.Include(err, "page not found")
-	return renderstuff.HandlerResult[void]{}, err
+	return flexy.HandlerResult[void]{}, err
 }

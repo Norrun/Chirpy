@@ -14,7 +14,7 @@ import (
 	"github.com/Norrun/Chirpy/internal/auth"
 	"github.com/Norrun/Chirpy/internal/database"
 	"github.com/Norrun/Chirpy/internal/errormeta"
-	"github.com/Norrun/Chirpy/internal/renderstuff"
+	"github.com/Norrun/Chirpy/internal/flexy"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
@@ -148,8 +148,8 @@ func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Req
 
 }
 
-func (receiver *apiConfig) handlerApiChirps(r *http.Request) (renderstuff.HandlerResult[[]ResponseChirp], error) {
-	var empty renderstuff.HandlerResult[[]ResponseChirp]
+func (receiver *apiConfig) handlerApiChirps(r *http.Request) (flexy.HandlerResult[[]ResponseChirp], error) {
+	var empty flexy.HandlerResult[[]ResponseChirp]
 	chirps, err := receiver.dbq.GetPosts(r.Context())
 	if err != nil {
 		return empty, err
@@ -164,11 +164,11 @@ func (receiver *apiConfig) handlerApiChirps(r *http.Request) (renderstuff.Handle
 			UserID:    chirp.ID.String(),
 		})
 	}
-	return renderstuff.HandlerResult[[]ResponseChirp]{Status: 200, Headers: nil, Data: resChirps}, nil
+	return flexy.HandlerResult[[]ResponseChirp]{Status: 200, Headers: nil, Data: resChirps}, nil
 }
 
-func (receiver *apiConfig) handlerApiChirpsID(r *http.Request) (renderstuff.HandlerResult[ResponseChirp], error) {
-	var empty renderstuff.HandlerResult[ResponseChirp]
+func (receiver *apiConfig) handlerApiChirpsID(r *http.Request) (flexy.HandlerResult[ResponseChirp], error) {
+	var empty flexy.HandlerResult[ResponseChirp]
 	IDStr := r.PathValue("id")
 	ID, err := uuid.Parse(IDStr)
 	if err != nil {
@@ -194,11 +194,11 @@ func (receiver *apiConfig) handlerApiChirpsID(r *http.Request) (renderstuff.Hand
 		UserID:    chirp.UserID.String(),
 	}
 
-	return renderstuff.HandlerResult[ResponseChirp]{Data: resChirp}, nil
+	return flexy.HandlerResult[ResponseChirp]{Data: resChirp}, nil
 }
 
-func (receiver *apiConfig) handlerApiLogin(r *http.Request) (renderstuff.HandlerResult[ResponseUser], error) {
-	var empty renderstuff.HandlerResult[ResponseUser]
+func (receiver *apiConfig) handlerApiLogin(r *http.Request) (flexy.HandlerResult[ResponseUser], error) {
+	var empty flexy.HandlerResult[ResponseUser]
 	login, err := readJsonRequestType[CreateUser](r)
 	if err != nil {
 		if _, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
@@ -227,7 +227,7 @@ func (receiver *apiConfig) handlerApiLogin(r *http.Request) (renderstuff.Handler
 		err = errormeta.Include(err, "wrong password")
 		return empty, err
 	}
-	result := renderstuff.HandlerResult[ResponseUser]{Data: ResponseUser{
+	result := flexy.HandlerResult[ResponseUser]{Data: ResponseUser{
 		ID:        user.ID.String(),
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
