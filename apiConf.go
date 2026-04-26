@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/Norrun/Chirpy/internal/auth"
 	"github.com/Norrun/Chirpy/internal/database"
@@ -26,13 +27,14 @@ func loading() (*apiConfig, error) {
 	}
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
+	secret := os.Getenv("SECRET")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return nil, err
 	}
 	queries := database.New(db)
 
-	conf := apiConfig{dbq: queries, Platform: platform}
+	conf := apiConfig{dbq: queries, Platform: platform, Secret: secret}
 	return &conf, nil
 }
 
@@ -40,6 +42,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	dbq            *database.Queries
 	Platform       string
+	Secret         string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -111,11 +114,21 @@ func (cfg *apiConfig) handlerApiUsersCreate(w http.ResponseWriter, r *http.Reque
 }
 
 func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Request) {
-	var recevePost struct {
-		Body   string `json:"body"`
-		UserID string `json:"user_id"`
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized", err)
 	}
-	err := readJsonRequest(r, &recevePost)
+	userID, err := auth.ValidateJWT(token, conf.Secret)
+	if err != nil {
+		respondWithError(w, 401, "Unauthorized", err)
+	}
+
+	var recevePost struct {
+		Body string `json:"body"`
+	}
+	err = readJsonRequest(r, &recevePost)
+
 	if err != nil {
 		respondWithError(w, 400, "Something went wrong when creating post", err)
 		return
@@ -125,11 +138,6 @@ func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	userID, err := uuid.Parse(recevePost.UserID)
-	if err != nil {
-		respondWithError(w, 400, "Something went wrong when creating post", err)
-		return
-	}
 	post, err := conf.dbq.CreatePost(r.Context(), database.CreatePostParams{Body: recevePost.Body, UserID: userID})
 	if err != nil {
 		respondWithError(w, 400, "Something went wrong when creating post", err)
@@ -227,11 +235,24 @@ func (receiver *apiConfig) handlerApiLogin(r *http.Request) (flexy.HandlerResult
 		err = errormeta.Include(err, "wrong password")
 		return empty, err
 	}
+	//TODO: remove hardcoded value
+	expires := time.Hour
+
+	if login.ExpiresInSec > 0 && login.ExpiresInSec < 60*60 {
+		expires = time.Duration(login.ExpiresInSec) * time.Second
+	}
+
+	jwt, err := auth.MakeJWT(user.ID, receiver.Secret, expires)
+	if err != nil {
+		return empty, err
+	}
+
 	result := flexy.HandlerResult[ResponseUser]{Data: ResponseUser{
 		ID:        user.ID.String(),
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
+		Token:     jwt,
 	}}
 	return result, nil
 }
