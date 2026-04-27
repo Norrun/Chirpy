@@ -17,6 +17,11 @@ type errorMetadata[T any] struct {
 }
 
 func (r errorMetadata[T]) Error() string {
+
+	if r.internal == nil {
+		return fmt.Sprintf("%v", r.data)
+	}
+
 	if v, ok := any(r.data).(fmt.Stringer); ok {
 		return fmt.Sprintf("%s\n%s", r.internal.Error(), v.String())
 	}

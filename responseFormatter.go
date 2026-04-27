@@ -54,7 +54,7 @@ func middlewareRespondJson[T any](conf *apiConfig, h flexy.HandlerFunc[T]) http.
 	}
 }
 
-func adapterHandleError(conf *apiConfig, _ flexy.Renderer, previous flexy.Handler) http.Handler {
+func adapterHandleError(conf *apiConfig, previous flexy.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := previous.ServeHTTP(w, r)
@@ -70,7 +70,7 @@ func adapterHandleError(conf *apiConfig, _ flexy.Renderer, previous flexy.Handle
 			}
 
 			if conf.Platform == "dev" {
-				log.Println(err)
+				log.Printf("%d_%s_%v", status, msg, err)
 			} else if status >= 500 {
 				log.Printf("5XX error (%s): %v", msg, err)
 			}

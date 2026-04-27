@@ -30,3 +30,9 @@ func (receiver RendererFunc) Render(w http.ResponseWriter, status int, a any, r 
 type Handler interface {
 	ServeHTTP(w http.ResponseWriter, r *http.Request) error
 }
+
+type Handlerf func(w http.ResponseWriter, r *http.Request) error
+
+func (receiver Handlerf) ServeHTTP(w http.ResponseWriter, r *http.Request) error {
+	return receiver(w, r)
+}

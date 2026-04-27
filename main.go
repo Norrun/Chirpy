@@ -50,6 +50,8 @@ func routing(mux *http.ServeMux, conf *apiConfig) {
 	mux.Handle("GET /api/chirps", middlewareRespondJson(conf, conf.handlerApiChirps))
 	mux.Handle("GET /api/chirps/{id}", middlewareRespondJson(conf, conf.handlerApiChirpsID))
 	mux.Handle("POST /api/login", middlewareRespondJson(conf, conf.handlerApiLogin))
+	mux.Handle("POST /api/refresh", adapterHandleError(conf, flexy.Handlerf(conf.handlerApiRefresh)))
+	mux.Handle("POST /api/revoke", adapterHandleError(conf, flexy.Handlerf(conf.handlerApiRevoke)))
 
 }
 

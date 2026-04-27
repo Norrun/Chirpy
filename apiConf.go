@@ -118,10 +118,12 @@ func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Req
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
 		respondWithError(w, 401, "Unauthorized", err)
+		return
 	}
 	userID, err := auth.ValidateJWT(token, conf.Secret)
 	if err != nil {
 		respondWithError(w, 401, "Unauthorized", err)
+		return
 	}
 
 	var recevePost struct {
@@ -238,21 +240,73 @@ func (receiver *apiConfig) handlerApiLogin(r *http.Request) (flexy.HandlerResult
 	//TODO: remove hardcoded value
 	expires := time.Hour
 
-	if login.ExpiresInSec > 0 && login.ExpiresInSec < 60*60 {
-		expires = time.Duration(login.ExpiresInSec) * time.Second
-	}
-
 	jwt, err := auth.MakeJWT(user.ID, receiver.Secret, expires)
 	if err != nil {
 		return empty, err
 	}
+	refresh := auth.MakeRefreshToken()
+
+	receiver.dbq.RegisterRefreshToken(r.Context(), database.RegisterRefreshTokenParams{
+		Token:     refresh,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(time.Hour * 24 * 60),
+	})
 
 	result := flexy.HandlerResult[ResponseUser]{Data: ResponseUser{
-		ID:        user.ID.String(),
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
-		Token:     jwt,
+		ID:           user.ID.String(),
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		Email:        user.Email,
+		Token:        jwt,
+		RefreshToken: refresh,
 	}}
 	return result, nil
+}
+
+func (receiver *apiConfig) handlerApiRefresh(w http.ResponseWriter, r *http.Request) error {
+	barer, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		err = errormeta.Include(err, 400)
+		err = errormeta.Include(err, "Bad Request")
+		return err
+	}
+	refresh, err := receiver.dbq.GetRefreshToken(r.Context(), barer)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			err = errormeta.Include(err, 401)
+			err = errormeta.Include(err, "Unauthorized")
+		}
+		return err
+	}
+	if refresh.ExpiresAt.Before(time.Now()) || refresh.RevokedAt.Valid {
+		err = errormeta.Include(err, 401)
+		err = errormeta.Include(err, "Unauthorized")
+		return err
+	}
+	token, err := auth.MakeJWT(refresh.UserID, receiver.Secret, time.Hour)
+	if err != nil {
+		return err
+	}
+	tokenjson := struct {
+		Token string ` json:"token"`
+	}{
+		token,
+	}
+	respondWithJson(w, 200, tokenjson)
+	return nil
+}
+
+func (receiver *apiConfig) handlerApiRevoke(w http.ResponseWriter, r *http.Request) error {
+	barer, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		err = errormeta.Include(err, 400)
+		err = errormeta.Include(err, "Bad Request")
+		return err
+	}
+	err = receiver.dbq.RevokeRefreshToken(r.Context(), barer)
+	if err != nil {
+		return err
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
 }
