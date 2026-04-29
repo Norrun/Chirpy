@@ -310,3 +310,50 @@ func (receiver *apiConfig) handlerApiRevoke(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
+
+func (receiver *apiConfig) handlerApiUsersUpdate(w http.ResponseWriter, r *http.Request) error {
+	barer, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		err = errormeta.Include(err, 401)
+		err = errormeta.Include(err, "Unauthorized")
+		return err
+	}
+	id, err := auth.ValidateJWT(barer, receiver.Secret)
+
+	if err != nil {
+		err = errormeta.Include(err, 401)
+		err = errormeta.Include(err, "Unauthorized")
+		return err
+	}
+
+	update, err := readJsonRequestType[CreateUser](r)
+	if err != nil {
+		err = errormeta.Include(err, 400)
+		err = errormeta.Include(err, "Bad Request")
+		return err
+	}
+	passhash, err := auth.HashPassword(update.Password)
+	if err != nil {
+
+		return err
+	}
+	user, err := receiver.dbq.ChangeCredentials(r.Context(), database.ChangeCredentialsParams{
+		ID:       id,
+		Email:    update.Email,
+		Password: passhash,
+	})
+
+	if err != nil {
+		err = errormeta.Include(err, 401)
+		err = errormeta.Include(err, "Unauthorized")
+		return err
+	}
+	response := ResponseUser{
+		ID:        id.String(),
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+	respondWithJson(w, 200, response)
+	return nil
+}

@@ -52,6 +52,7 @@ func routing(mux *http.ServeMux, conf *apiConfig) {
 	mux.Handle("POST /api/login", middlewareRespondJson(conf, conf.handlerApiLogin))
 	mux.Handle("POST /api/refresh", adapterHandleError(conf, flexy.Handlerf(conf.handlerApiRefresh)))
 	mux.Handle("POST /api/revoke", adapterHandleError(conf, flexy.Handlerf(conf.handlerApiRevoke)))
+	mux.Handle("PUT /api/users", adapterHandleError(conf, flexy.Handlerf(conf.handlerApiUsersUpdate)))
 
 }
 

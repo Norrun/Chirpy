@@ -7,7 +7,35 @@ package database
 
 import (
 	"context"
+
+	"github.com/google/uuid"
 )
+
+const changeCredentials = `-- name: ChangeCredentials :one
+UPDATE users
+SET updated_at = NOW(), email = $2, password = $3
+WHERE id = $1
+RETURNING id, created_at, updated_at, email, password
+`
+
+type ChangeCredentialsParams struct {
+	ID       uuid.UUID
+	Email    string
+	Password string
+}
+
+func (q *Queries) ChangeCredentials(ctx context.Context, arg ChangeCredentialsParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, changeCredentials, arg.ID, arg.Email, arg.Password)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.Password,
+	)
+	return i, err
+}
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, created_at, updated_at, email,password)
