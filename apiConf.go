@@ -357,3 +357,46 @@ func (receiver *apiConfig) handlerApiUsersUpdate(w http.ResponseWriter, r *http.
 	respondWithJson(w, 200, response)
 	return nil
 }
+
+func (receiver *apiConfig) handlerApiPostsIDDelete(w http.ResponseWriter, r *http.Request) error {
+	jt, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		err = errormeta.Include(err, 401)
+		err = errormeta.Include(err, "Unauthorized")
+		return err
+	}
+	userID, err := auth.ValidateJWT(jt, receiver.Secret)
+	if err != nil {
+		err = errormeta.Include(err, 401)
+		err = errormeta.Include(err, "Unauthorized")
+		return err
+	}
+	IDStr := r.PathValue("id")
+
+	postID, err := uuid.Parse(IDStr)
+	if err != nil {
+
+		err = errormeta.Include(err, 400)
+		err = errormeta.Include(err, "Bad Request")
+		return err
+	}
+
+	post, err := receiver.dbq.GetPost(r.Context(), postID)
+	if err != nil {
+		err = errormeta.Include(err, 404)
+		err = errormeta.Include(err, "Not Found")
+		return err
+	}
+	if post.UserID != userID {
+		err = errormeta.Include(err, 403)
+		err = errormeta.Include(err, "Forbidden")
+		return err
+	}
+	err = receiver.dbq.DeletePost(r.Context(), postID)
+	if err != nil {
+		return err
+	}
+	w.WriteHeader(204)
+	return nil
+
+}
