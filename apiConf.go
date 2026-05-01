@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -28,13 +30,14 @@ func loading() (*apiConfig, error) {
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
 	secret := os.Getenv("SECRET")
+	polkaKey := os.Getenv("POLKA_KEY")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		return nil, err
 	}
 	queries := database.New(db)
 
-	conf := apiConfig{dbq: queries, Platform: platform, Secret: secret}
+	conf := apiConfig{dbq: queries, Platform: platform, Secret: secret, PolkaKey: polkaKey}
 	return &conf, nil
 }
 
@@ -43,6 +46,7 @@ type apiConfig struct {
 	dbq            *database.Queries
 	Platform       string
 	Secret         string
+	PolkaKey       string
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -108,6 +112,7 @@ func (cfg *apiConfig) handlerApiUsersCreate(w http.ResponseWriter, r *http.Reque
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
+		IsRed:     user.IsChirpyRed,
 	}
 	respondWithJson(w, http.StatusCreated, responseUser)
 
@@ -160,7 +165,21 @@ func (conf *apiConfig) handlerApiChirpsCreate(w http.ResponseWriter, r *http.Req
 
 func (receiver *apiConfig) handlerApiChirps(r *http.Request) (flexy.HandlerResult[[]ResponseChirp], error) {
 	var empty flexy.HandlerResult[[]ResponseChirp]
-	chirps, err := receiver.dbq.GetPosts(r.Context())
+
+	chirps, err := compositeFallback(func() ([]database.Post, error) {
+		authorId := r.URL.Query().Get("author_id")
+		if authorId == "" {
+			return nil, next()
+		}
+		userId, ierr := uuid.Parse(authorId)
+		if ierr != nil {
+			return nil, ierr
+		}
+		return receiver.dbq.GetPostsFrom(r.Context(), userId)
+	}, func() ([]database.Post, error) {
+		return receiver.dbq.GetPosts(r.Context())
+	})
+
 	if err != nil {
 		return empty, err
 	}
@@ -174,6 +193,14 @@ func (receiver *apiConfig) handlerApiChirps(r *http.Request) (flexy.HandlerResul
 			UserID:    chirp.ID.String(),
 		})
 	}
+	sorting := r.URL.Query().Get("sort")
+	switch sorting {
+	case "desc":
+		sort.Slice(resChirps, func(i, j int) bool { return resChirps[i].CreatedAt.After(resChirps[j].CreatedAt) })
+	case "asc":
+		sort.Slice(resChirps, func(i, j int) bool { return resChirps[i].CreatedAt.Before(resChirps[j].CreatedAt) })
+	}
+
 	return flexy.HandlerResult[[]ResponseChirp]{Status: 200, Headers: nil, Data: resChirps}, nil
 }
 
@@ -259,6 +286,7 @@ func (receiver *apiConfig) handlerApiLogin(r *http.Request) (flexy.HandlerResult
 		Email:        user.Email,
 		Token:        jwt,
 		RefreshToken: refresh,
+		IsRed:        user.IsChirpyRed,
 	}}
 	return result, nil
 }
@@ -353,6 +381,7 @@ func (receiver *apiConfig) handlerApiUsersUpdate(w http.ResponseWriter, r *http.
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
+		IsRed:     user.IsChirpyRed,
 	}
 	respondWithJson(w, 200, response)
 	return nil
@@ -398,5 +427,51 @@ func (receiver *apiConfig) handlerApiPostsIDDelete(w http.ResponseWriter, r *htt
 	}
 	w.WriteHeader(204)
 	return nil
+
+}
+
+func (receiver *apiConfig) handlerApiPolkaWebhooks(w http.ResponseWriter, r *http.Request) {
+	polkaKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		w.WriteHeader(401)
+		log.Println(err)
+		return
+	}
+	if polkaKey != receiver.PolkaKey {
+		w.WriteHeader(401)
+		return
+	}
+	var event struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID string `json:"user_id"`
+		} `json:"data"`
+	}
+	err = readJsonRequest(r, &event)
+	if err != nil {
+		w.WriteHeader(204)
+		log.Print(err)
+		return
+	}
+
+	if event.Event != "user.upgraded" {
+		w.WriteHeader(204)
+		return
+	}
+	userId, err := uuid.Parse(event.Data.UserID)
+	if err != nil {
+		w.WriteHeader(204)
+		log.Print(err)
+		return
+	}
+	err = receiver.dbq.UpgradeUser(r.Context(), userId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			w.WriteHeader(404)
+			return
+		}
+		log.Print(err)
+	}
+	w.WriteHeader(204)
 
 }

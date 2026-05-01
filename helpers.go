@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -50,4 +51,29 @@ func readJsonRequest(r *http.Request, to any) error {
 		return err
 	}
 	return nil
+}
+
+func compositeFallback[T any](tries ...func() (T, error)) (T, error) {
+	var empty T
+	var err error
+	for _, try := range tries {
+		data, ierr := try()
+		if ierr != nil {
+			err = errors.Join(err, ierr)
+			continue
+		}
+		return data, nil
+	}
+	return empty, err
+}
+
+type fallbackError struct {
+}
+
+func (receiver fallbackError) Error() string {
+	return ""
+}
+
+func next() error {
+	return fallbackError{}
 }
